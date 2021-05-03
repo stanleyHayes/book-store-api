@@ -1,10 +1,19 @@
 import express from "express";
 import {graphqlHTTP} from "express-graphql";
 import dotenv from "dotenv";
+import mongoose from "mongoose";
 
 import schema from "./schema/schema.js";
 
 dotenv.config({path: './config/config.env'});
+
+mongoose.connect(process.env.MONGODB_URI, {useCreateIndex: true, useFindAndModify: true, useNewUrlParser: true, useUnifiedTopology:true})
+    .then((data) => {
+        console.log(`Successfully connected to mongodb on ${data.connection.host} and database ${data.connection.db.databaseName}`);
+    }).catch(error => {
+        console.log(`Error: ${error.message}`);
+    });
+
 const app = express();
 const port = process.env.PORT || 4000;
 
