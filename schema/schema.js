@@ -1,4 +1,4 @@
-import {GraphQLObjectType, GraphQLString, GraphQLSchema, GraphQLID, GraphQLInt, GraphQLList} from "graphql";
+import {GraphQLObjectType, GraphQLString, GraphQLSchema, GraphQLID, GraphQLInt, GraphQLList, GraphQLNonNull} from "graphql";
 import Book from "../models/book.js";
 import Author from "../models/author.js";
 
@@ -10,8 +10,8 @@ const BookType = new GraphQLObjectType({
         genre: {type: GraphQLString},
         author: {
             type: AuthorType,
-            resolve(parent, args){
-                
+            async resolve(parent, args){
+                return await Author.findById(parent.author);
             }
         }
     })
@@ -25,8 +25,8 @@ const AuthorType = new GraphQLObjectType({
         id: {type: GraphQLID},
         books: {
             type: new GraphQLList(BookType),
-            resolve(parent, args){
-                return _.filter(books, {author: parent.id});
+            async resolve(parent, args){
+                return await Book.find({author: parent.id}).populate('author');
             }
         }
     })
@@ -39,27 +39,27 @@ const RootQuery = new GraphQLObjectType({
         book: {
             type: BookType, 
             args: {id: {type: GraphQLID}},
-            resolve(parent, args){
-                
+            async resolve(parent, {id}){
+                return await Book.findById(id).populate('author');
             }
         },
         author: {
             type: AuthorType,
             args: {id: {type: GraphQLID}},
-            resolve(parent, args){
-                
+            async resolve(parent, {id}){
+                return await Author.findById(id);
             }
         },
         books: {
             type: new GraphQLList(BookType),
-            resolve(parent, args){
-                
+            async resolve(parent, args){
+                return await Book.find({}).populate('author');
             }
         },
         authors: {
             type: new GraphQLList(AuthorType),
-            resolve(parent, args){
-               
+            async resolve(parent, args){
+               return await Author.find({});
             }
         }
     }
@@ -71,11 +71,11 @@ const Mutation = new GraphQLObjectType({
         addAuthor:{
             type: AuthorType, 
             args: {
-                name: {type: GraphQLString},
-                age: {type: GraphQLInt}
+                name: {type: new GraphQLNonNull(GraphQLString)},
+                age: {type: new GraphQLNonNull(GraphQLInt)}
             },
-            resolve(parent, args){
-                let author = new Author({name: args.name, age: arg.age});
+            async resolve(parent, args){
+                let author = new Author({name: args.name, age: args.age});
                 author = await author.save();
                 return author;
             }
@@ -88,16 +88,18 @@ const Mutation = new GraphQLObjectType({
                 id: {type: GraphQLID}
             }
         },
-        deleteAuthor: {
-            type: AuthorType,
-            args: {id: {type: GraphQLID}}
-        },
         addBook: {
             type: BookType,
             args: {
-                name: {type: GraphQLString},
-                genre: {type: GraphQLString},
-                author: {type: GraphQLID}
+                name: {type: new GraphQLNonNull(GraphQLString) },
+                genre: {type: new GraphQLNonNull(GraphQLString)},
+                author: {type: new GraphQLNonNull( GraphQLID)}
+            },
+            async resolve(parent, {name, genre, author}){
+                let book = new Book({name, genre, author});
+                book = await book.save();
+                book = await book.populate({path: 'author'}).execPopulate()
+                return book;
             }
         },
         updateBook: {
@@ -106,6 +108,10 @@ const Mutation = new GraphQLObjectType({
                 name: {type: GraphQLString},
                 genre: {type: GraphQLString},
                 id: {type: GraphQLID}
+            },
+            resolve(parent, args){
+                const updates = Object.keys(args);
+
             }
         }
     }
